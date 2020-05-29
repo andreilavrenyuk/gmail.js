@@ -3895,7 +3895,12 @@ var Gmail = function(localJQuery) {
 
         if (typeof element === "string") {
             this.id = element;
-            element = $("div.adn[data-legacy-message-id='" + this.id + "']");
+
+            const selector = api.check.data.is_legacy_email_id(element)
+                ? `div.adn[data-legacy-message-id='${this.id}']`
+                : `div.adn[data-message-id='#${this.id}']`;
+
+            element = $(selector);
         } else {
             element = $(element);
         }
@@ -3904,7 +3909,7 @@ var Gmail = function(localJQuery) {
 
         this.$el = element;
         if (!this.id) {
-            this.id = this.$el.data("legacyMessageId");
+            this.id = this.$el.data("messageId").replace(/^#/, '') || this.$el.data("legacyMessageId");
         }
 
         return this;
