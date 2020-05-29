@@ -3515,9 +3515,8 @@ var Gmail = function(localJQuery) {
     };
 
     api.tools.add_modal_window = function(title, content_html, onClickOk, onClickCancel, onClickClose, okText, cancelText) {
-        // By default, clicking on cancel or close should clean up the modal window
+        // By default, clicking on close should clean up the modal window
         onClickClose = onClickClose || api.tools.remove_modal_window;
-        onClickCancel = onClickCancel || api.tools.remove_modal_window;
 
         okText = okText || "OK";
         cancelText = cancelText || "Cancel";
@@ -3575,14 +3574,16 @@ var Gmail = function(localJQuery) {
         okButton.text(okText);
         okButton.click(onClickOk);
 
-        var cancelButton = $(document.createElement("button"));
-        cancelButton.attr("id", "gmailJsModalWindowCancel");
-        cancelButton.attr("name", "cancel");
-        cancelButton.text(cancelText);
-        cancelButton.click(onClickCancel);
-
         controls.append(okButton);
-        controls.append(cancelButton);
+
+        if (onClickCancel) {
+            var cancelButton = $(document.createElement("button"));
+            cancelButton.attr("id", "gmailJsModalWindowCancel");
+            cancelButton.attr("name", "cancel");
+            cancelButton.text(cancelText);
+            cancelButton.click(onClickCancel);
+            controls.append(cancelButton);
+        }
 
         container.append(header);
         container.append(contents);
