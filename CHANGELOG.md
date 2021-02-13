@@ -1,6 +1,32 @@
 
 # Changelog
 
+## Version 1.0.6
+
+- Fix `gmail.compose.start_compose()`.
+
+## Version 1.0.5
+
+- Improve ergonomics of `gmail.dom.email()`. Support new email-id in constructor.
+
+## Version 1.0.4
+
+- Fix `gmail.check.is_inside_email()`
+
+## Version 1.0.3
+
+- Make `compose` cc() and bcc() methods force show cc and bcc-fields
+  before updating.
+
+## Version 1.0.2
+
+- Fix for `compose` to(), cc() and bcc() methods not updating
+  email correctly.
+
+## Version 1.0.1
+
+- Fix selector for start-compose button. Thanks @mikob!
+
 ## Version 1.0.0
 
 - major improvements in populating the email-cache. Thanks @Fabi1Sc!

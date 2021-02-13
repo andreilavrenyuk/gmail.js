@@ -54,6 +54,16 @@ var Gmail = function(localJQuery) {
         helper : {get: {}}
     };
 
+    api.DISABLE_OLD_GMAIL_API_DEPRECATION_WARNINGS = false;
+
+    function oldGmailApiDeprecated(text = "Migrate to new API compatible with new Gmail to silence this warning!") {
+        if (api.DISABLE_OLD_GMAIL_API_DEPRECATION_WARNINGS) {
+            return;
+        }
+
+        console.warn("GmailJS: using deprecated API for old Gmail.", text);
+    }
+
     api.version           = "0.8.0";
     api.tracker.globals   = typeof GLOBALS !== "undefined"
         ? GLOBALS
@@ -411,7 +421,7 @@ var Gmail = function(localJQuery) {
             return false;
         }
 
-        var items = $(".ii.gt .a3s.aXjCH");
+        var items = $(".ii.gt .a3s");
         var ids = [];
 
         for(var i=0; i<items.length; i++) {
@@ -457,7 +467,8 @@ var Gmail = function(localJQuery) {
 
 
     api.get.email_ids = function() {
-        console.warn("GmailJS: using deprecated API for old Gmail. Migrate to new API compatible with new Gmail to silence this warning!");
+        oldGmailApiDeprecated();
+
         if(api.check.is_inside_email()) {
             var data = api.get.email_data();
             return Object.keys(data.threads);
@@ -478,7 +489,8 @@ var Gmail = function(localJQuery) {
     };
 
     api.get.thread_id = function() {
-        console.warn("GmailJS: using deprecated API for old Gmail. Migrate to new API compatible with new Gmail to silence this warning!");
+        oldGmailApiDeprecated();
+
         // multiple elements contains this attribute, but only the visible header of the visible email is a H2!
         const elem = document.querySelector("h2[data-legacy-thread-id]");
         if (elem !== null) {
@@ -491,7 +503,8 @@ var Gmail = function(localJQuery) {
     };
 
     api.get.email_id = function() {
-        console.warn("GmailJS: using deprecated API for old Gmail. Migrate to new API compatible with new Gmail to silence this warning!");
+        oldGmailApiDeprecated();
+
         return api.get.thread_id();
     };
 
@@ -2770,24 +2783,6 @@ var Gmail = function(localJQuery) {
         return emails;
     };
 
-    // dispatch mousedown and mouseup event on passed element
-    api.helper.trigger_mouse_click = function(element) {
-        if(element) {
-            //Trigger mouse down event
-            var mouseDown = document.createEvent("MouseEvents");
-            mouseDown.initEvent( "mousedown", true, false );
-            element.dispatchEvent(mouseDown);
-
-            //Trigger mouse up event
-            var mouseUp = document.createEvent("MouseEvents");
-            mouseUp.initEvent( "mouseup", true, false );
-            element.dispatchEvent(mouseUp);
-
-            return true;
-        }
-        return false;
-    };
-
     api.get.visible_emails = function(customInboxQuery) {
         var url = api.helper.get.visible_emails_pre(customInboxQuery);
         var get_data = api.tools.make_request(url);
@@ -3017,7 +3012,8 @@ var Gmail = function(localJQuery) {
 
 
     api.helper.get.email_data_pre = function(thread_id) {
-        console.warn("Gmail.js: Usage of legacy email-data APIs have been deprecated by Google and will most likely fail. Migrate code to use gmail.new.get.email_data() to fix this problem.");
+        oldGmailApiDeprecated("Migrate code to use gmail.new.get.email_data() to fix this problem.");
+
         if(api.check.is_inside_email() && thread_id === undefined) {
             thread_id = api.get.thread_id();
         }
@@ -3609,7 +3605,7 @@ var Gmail = function(localJQuery) {
         var minimizeButton = $("[alt='Minimize']")[0];
 
         if(minimizeButton) {
-            api.helper.trigger_mouse_click(minimizeButton);
+            minimizeButton.click();
 
             return true;
         }
@@ -3695,6 +3691,27 @@ var Gmail = function(localJQuery) {
         return objs;
     };
 
+    api.dom.helper = {
+    };
+    /**
+      * triggers a keyboard event inside a textarea, to ensure Gmail updates
+      * the underlying data-model to use the email injected into the textarea.
+      */
+    api.dom.helper.trigger_address = function($el) {
+        // actual DOM element, no jQuery.
+        let el = $el[0];
+        let event = new KeyboardEvent("keydown", {
+            bubbles : true,
+            cancelable : true,
+            key : "Tab",
+            shiftKey : true,
+            keyCode : 9
+        });
+
+        el.focus();
+        el.dispatchEvent(event);
+    };
+
     /**
        A compose object. Represents a compose window in the DOM and provides a bunch of methods and properties to access & interact with the window
        Expects a jQuery DOM element for the compose div
@@ -3775,21 +3792,39 @@ var Gmail = function(localJQuery) {
            Retrieve the current "to" recipients
         */
         to: function(to) {
-            return this.dom("to").val(to);
+            const $el = this.dom("to").val(to);
+            api.dom.helper.trigger_address($el);
+            return $el;
         },
 
         /**
            Retrieve the current "cc" recipients
         */
         cc: function(cc) {
-            return this.dom("cc").val(cc);
+            // ensure cc is visible before setting!
+            if (cc) {
+                const showCc = this.dom("show_cc");
+                showCc.click();
+            }
+
+            const $el = this.dom("cc").val(cc);
+            api.dom.helper.trigger_address($el);
+            return $el;
         },
 
         /**
            Retrieve the current "bcc" recipients
         */
         bcc: function(bcc) {
-            return this.dom("bcc").val(bcc);
+            // ensure bcc is visible before setting!
+            if (bcc) {
+                const showBcc = this.dom("show_bcc");
+                showBcc.click();
+            }
+
+            const $el = this.dom("bcc").val(bcc);
+            api.dom.helper.trigger_address($el);
+            return $el;
         },
 
         /**
@@ -3874,7 +3909,9 @@ var Gmail = function(localJQuery) {
                 reply: "M9",
                 forward: "M9",
                 from: "input[name=from]",
-                send_button: "div.T-I.T-I-atl:not(.gmailjscomposebutton)"
+                send_button: "div.T-I.T-I-atl:not(.gmailjscomposebutton)",
+                show_cc: "span.aB.gQ.pE",
+                show_bcc: "span.aB.gQ.pB"
             };
             if(!config[lookup]) api.tools.error("Dom lookup failed. Unable to find config for \"" + lookup + "\"",config,lookup,config[lookup]);
             return this.$el.find(config[lookup]);
@@ -3893,22 +3930,27 @@ var Gmail = function(localJQuery) {
             return new api.dom.email(element);
         }
 
-        if (typeof element === "string") {
+        if (typeof element === "string" && api.check.data.is_legacy_email_id(element)) {
             this.id = element;
-            element = $("div.adn[data-legacy-message-id='" + this.id + "']");
-        } else {
-            element = $(element);
-        }
-
-        if (!element || (!element.hasClass("adn"))) api.tools.error("api.dom.email called with invalid element/id");
-
-        this.$el = element;
-        if (!this.id) {
+            this.$el = $("div.adn[data-legacy-message-id='" + this.id + "']");
+        } else if (typeof element === "string" && api.check.data.is_email_id(element)) {
+            const elem = document.querySelector("div.adn[data-message-id='" + element.replace("msg-f:", "\\#msg-f\\:") + "']");
+            this.id = elem.dataset.legacyMessageId;
+            this.$el = $(elem);
+        } else if (element &&
+                   ((element.classList && element.classList.contains("adn")) // DOM
+                    || (element.hasClass && element.hasClass("adn"))))       // jQuery
+        {
+            this.$el = $(element);
             this.id = this.$el.data("legacyMessageId");
+        } else {
+            api.tools.error("api.dom.email called with invalid element/id");
         }
 
+        // silence linter!
         return this;
     };
+
 
     extend(api.dom.email.prototype, {
 
@@ -4115,10 +4157,9 @@ var Gmail = function(localJQuery) {
     api.compose.start_compose = function() {
 
         //The compose button
-        var composeEl = $(".T-I.J-J5-Ji.T-I-KE.L3")[0];
-
+        var composeEl = document.getElementsByClassName("T-I T-I-KE L3")[0];
         if(composeEl) {
-            api.helper.trigger_mouse_click(composeEl);
+            composeEl.click();
 
             return true;
         }
