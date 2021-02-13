@@ -3951,6 +3951,7 @@ var Gmail = function(localJQuery) {
         return this;
     };
 
+
     extend(api.dom.email.prototype, {
 
         /**
