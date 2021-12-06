@@ -268,6 +268,15 @@ var Gmail = function(localJQuery) {
             }
         }
 
+        // and in even newer gmail this seems to work:
+        if (globals[4]) {
+            let locale = globals[4].split(".")[1];
+            locale = api.helper.filter_locale(locale);
+            if (locale) {
+                return locale;
+            }
+        }
+
         return null;
     };
 
@@ -286,6 +295,13 @@ var Gmail = function(localJQuery) {
         return check_1.length > 1 || check_2.length > 1;
     };
 
+    /**
+    * New contact selection UI as announced in 
+    * https://workspaceupdates.googleblog.com/2021/10/visual-updates-for-composing-email-in-gmail.html
+    **/ 
+    api.check.is_peoplekit_compose = function (el) {
+        return $(el).find("div[name=to] input[peoplekit-id]").length !== 0;
+    };
 
     api.dom.inbox_content = function() {
         return $("div[role=main]:first");
@@ -357,12 +373,11 @@ var Gmail = function(localJQuery) {
     };
 
 
-    api.get.storage_info = function() {
-        var div = $(".md.mj").find("div")[0];
-        var used = $(div).find("span")[0].text;
-        var total = $(div).find("span")[1].text;
+    api.get.storage_info = function() {        
+        var div = document.querySelector(".md.mj div");
+        var used = div.querySelectorAll("span")[0].textContent.replace(/,/g, '.'); //convert to standard decimal
+        var total = div.querySelectorAll("span")[1].textContent.replace(/,/g, '.');
         var percent = parseFloat(used.replace(/[^0-9\.]/g, "")) * 100 / parseFloat(total.replace(/[^0-9\.]/g, ""));
-
         return {used : used, total : total, percent : Math.floor(percent)};
     };
 
@@ -1197,6 +1212,17 @@ var Gmail = function(localJQuery) {
         return res;
     };
 
+    api.tools.parse_fd_bv_is_draft = function(item) {
+        try {
+            if (!Array.isArray(item)) return false; // warning: case not seen during testing and value is untrustworthy
+            return item.includes('^r') && item.includes('^r_bt');
+        }
+        catch (e) {
+            return false;  // warning: case not seen during testing and value is untrustworthy
+        }
+        
+    };
+
     api.tools.parse_fd_bv_contact = function(item) {
         try
         {
@@ -1321,6 +1347,8 @@ var Gmail = function(localJQuery) {
                     const fd_email_timestamp = Number.parseInt(fd_email["2"]["17"]);
                     const fd_email_date = new Date(fd_email_timestamp);
 
+                    const fd_email_is_draft = api.tools.parse_fd_bv_is_draft(fd_email2["4"]);
+
                     const fd_email_content_html = api.tools.parse_fd_request_html_payload(fd_email);
 
                     const fd_attachments = api.tools.parse_fd_attachments(fd_email["2"]["14"]);
@@ -1338,6 +1366,7 @@ var Gmail = function(localJQuery) {
 
                     const email = {
                         id: fd_email_id,
+                        is_draft: fd_email_is_draft,
                         legacy_email_id: fd_legacy_email_id,
                         thread_id: fd_thread_id,
                         smtp_id: fd_email_smtp_id,
@@ -1400,6 +1429,8 @@ var Gmail = function(localJQuery) {
                     const fd_email_smtp_id = fd_email["14"];
                     const fd_email_subject = fd_email["8"];
 
+                    const fd_email_is_draft = api.tools.parse_fd_bv_is_draft(fd_email["11"]);
+
                     //TODO : to check...
                     const fd_email_timestamp = Number.parseInt(fd_email["18"]);
                     const fd_email_date = new Date(fd_email_timestamp);
@@ -1426,6 +1457,7 @@ var Gmail = function(localJQuery) {
 
                     const email = {
                         id: fd_email_id,
+                        is_draft: fd_email_is_draft,
                         legacy_email_id: fd_legacy_email_id,
                         thread_id: fd_thread_id,
                         smtp_id: fd_email_smtp_id,
@@ -1487,6 +1519,8 @@ var Gmail = function(localJQuery) {
                     const bv_email_date = new Date(bv_email_timestamp);                
                     const bv_email_content_html = ""; //Not present in bv request
                     
+                    const bv_email_is_draft = api.tools.parse_fd_bv_is_draft(bv_email["11"]);
+
                     //TODO
                     const bv_attachments = []; //Present but need a new parser (not urgent, present in fd email)
 
@@ -1502,6 +1536,7 @@ var Gmail = function(localJQuery) {
 
                     const email = {
                         id: bv_email_id,
+                        is_draft: bv_email_is_draft,
                         legacy_email_id: bv_legacy_email_id,
                         thread_id: bv_thread_id,
                         smtp_id: bv_email_smtp_id,
@@ -1559,6 +1594,8 @@ var Gmail = function(localJQuery) {
                     const bv_email_date = new Date(bv_email_timestamp);                
                     const bv_email_content_html = ""; //Not present in bv request
                     
+                    const bv_email_is_draft = api.tools.parse_fd_bv_is_draft(bv_email["11"]);
+
                     //TODO
                     const bv_attachments = []; //Present but need a new parser (not urgent, present in fd email)
 
@@ -1574,6 +1611,7 @@ var Gmail = function(localJQuery) {
 
                     const email = {
                         id: bv_email_id,
+                        is_draft: bv_email_is_draft,
                         legacy_email_id: bv_legacy_email_id,
                         thread_id: bv_thread_id,
                         smtp_id: bv_email_smtp_id,
@@ -2300,7 +2338,7 @@ var Gmail = function(localJQuery) {
             // when an individual email is loaded within a thread (also fires when thread loads displaying the latest email)
             "view_email": {
                 // class depends if is_preview_pane - Bu for preview pane, nH for standard view,
-                // the empty class ("") is for emails opened after thread is rendered.
+                // FIXME: the empty class ("") is for emails opened after thread is rendered (causes a storm of updates)
                 class: ["Bu", "nH", ""],
                 sub_selector: "div.adn",
                 handler: function(match, callback) {
@@ -2321,7 +2359,7 @@ var Gmail = function(localJQuery) {
 
             // a new email address is added to any of the to,cc,bcc fields when composing a new email or replying/forwarding
             "recipient_change": {
-                class: "vR",
+                class: ["vR", "afV"],
                 handler: function(match, callback) {
                     // console.log("compose:recipient handler called",match,callback);
 
@@ -2336,8 +2374,19 @@ var Gmail = function(localJQuery) {
                         // console.log("recipient timeout handler", api.tracker.recipient_matches.length);
                         if(!api.tracker.recipient_matches.length) return;
 
+                        let composeRoot = [];
+                        // sometimes (on copy-paste of contact in peoplekit mode) element disappears so iterate for all matches
+                        api.tracker.recipient_matches.forEach(match => {
+                            if (composeRoot.length === 0) {
+                                composeRoot = match.closest("div.M9");
+                            }
+                        });
+
+                        if (composeRoot.length === 0) {
+                            api.tools.error("Can't find composeRoot for " + match);
+                        }
+                        var compose = new api.dom.compose(composeRoot);
                         // determine an array of all emails specified for To, CC and BCC and extract addresses into an object for the callback
-                        var compose = new api.dom.compose(api.tracker.recipient_matches[0].closest("div.M9"));
                         var recipients = compose.recipients();
                         callback(compose, recipients, api.tracker.recipient_matches);
 
@@ -2437,6 +2486,34 @@ var Gmail = function(localJQuery) {
         api.tracker.custom_dom_observers[action] = config;
     };
 
+    var getTarget = function(e) {
+        // firefox does not support e.path
+        if (e.path) {
+            return e.path[0];
+        } else {
+            return e.target;
+        }
+    };
+
+    // prevent gmail jacking our click-events!
+    var preventGmailJacking = function() {
+        // install event-handler only once!
+        if (!api.tracker.jackPreventionInstalled) {
+            window.addEventListener("click", (e) => {
+                const target = getTarget(e);
+                if (target && target !== document.body) {
+                    const gmailJsButton = target.querySelector(":scope > .gmailjs");
+                    if (gmailJsButton) {
+                        gmailJsButton.click();
+                        e.preventDefault();
+                    }
+                }
+            });
+            api.tracker.jackPreventionInstalled = true;
+        }
+    };
+
+
     /**
        Observe DOM nodes being inserted. When a node with a class defined in api.tracker.dom_observers is inserted,
        trigger the related event and fire off any relevant bound callbacks
@@ -2473,9 +2550,14 @@ var Gmail = function(localJQuery) {
                         var removedNodes = mutation.removedNodes;
                         for (var j = 0; j < removedNodes.length; j++) {
                             var removedNode = removedNodes[j];
+                            if (removedNode.className === "agh" && removedNode.querySelector("div[data-hovercard-id]")) { // contains recipient in peoplekit
+                                let observer = api.tracker.dom_observer_map["afV"];
+                                let handler = api.tracker.dom_observers.recipient_change.handler;
+                                api.observe.trigger_dom(observer, $(mutation.target), handler);
+                            } else
                             if (removedNode.className === "vR") {
-                                var observer = api.tracker.dom_observer_map["vR"];
-                                var handler = api.tracker.dom_observers.recipient_change.handler;
+                                let observer = api.tracker.dom_observer_map["vR"];
+                                let handler = api.tracker.dom_observers.recipient_change.handler;
                                 api.observe.trigger_dom(observer, $(mutation.target), handler);
                             }
                         }
@@ -2499,7 +2581,10 @@ var Gmail = function(localJQuery) {
             // wait until the gmail interface has finished loading and then
             // execute the passed handler. If interface is already loaded,
             // then will just execute callback
-            if(api.dom.inbox_content().length) return callback();
+            if(api.dom.inbox_content().length) {
+                preventGmailJacking();
+                return callback();
+            }
             var load_count = 0;
             var delay = 200; // 200ms per check
             var attempts = 50; // try 50 times before giving up & assuming an error
@@ -2507,6 +2592,7 @@ var Gmail = function(localJQuery) {
                 var test = api.dom.inbox_content().length;
                 if(test > 0) {
                     clearInterval(timer);
+                    preventGmailJacking();
                     return callback();
                 } else if(++load_count > attempts) {
                     clearInterval(timer);
@@ -3413,7 +3499,7 @@ var Gmail = function(localJQuery) {
         container.attr("class","G-Ni J-J5-Ji");
 
         var button = $(document.createElement("div"));
-        var buttonClasses = "T-I J-J5-Ji ";
+        var buttonClasses = "T-I J-J5-Ji gmailjs ";
         if(styleClass !== undefined &&
             styleClass !== null &&
             styleClass !== ""){
@@ -3451,8 +3537,12 @@ var Gmail = function(localJQuery) {
     };
 
     api.tools.add_compose_button =  function(composeWindow, content_html, onClickFunction, styleClass) {
+        var div = $(document.createElement("div"));
+        div.attr("class", "gU Up");
+        div.attr("style", "cursor: pointer !important; transform: translateY(1px);");
+
         var button = $(document.createElement("div"));
-        var buttonClasses = "T-I J-J5-Ji aoO T-I-atl L3 gmailjscomposebutton ";
+        var buttonClasses = "T-I J-J5-Ji aoO T-I-atl L3 gmailjs gmailjscomposebutton ";
         if(styleClass !== undefined){
             buttonClasses += styleClass;
         }
@@ -3461,7 +3551,10 @@ var Gmail = function(localJQuery) {
         button.html(content_html);
         button.click(onClickFunction);
 
-        composeWindow.find(".gU.Up  > .J-J5-Ji").append(button);
+        div.append(button);
+
+        var sendButton = composeWindow.find(".gU.Up");
+        div.insertAfter(sendButton);
 
         return button;
     };
@@ -3773,23 +3866,42 @@ var Gmail = function(localJQuery) {
         */
         recipients: function(options) {
             if( typeof options !== "object" ) options = {};
-            var name_selector = options.type ? "[name=" + options.type + "]" : "";
+            const peopleKit = api.check.is_peoplekit_compose(this.$el);
+            
+            const type_selector = options.type ? "[name=" + options.type + "]" : "";
 
-            // determine an array of all emails specified for To, CC and BCC and extract addresses into an object for the callback
-            var recipients = options.flat ? [] : { to: [], cc: [], bcc: [] };
-            this.$el.find(".GS input[type=hidden]"+name_selector).each(function(idx, recipient ){
-                if(options.flat) {
-                    recipients.push(recipient.value);
+            const found = peopleKit ?
+                this.$el.find("tr.bzf " + type_selector + " div[data-hovercard-id]").map((_, el) => ({
+                    type: el.closest("div[name]").getAttribute("name"),
+                    email: el.getAttribute("data-hovercard-id")
+                })) :
+                this.$el.find(".GS input[type=hidden]" + type_selector).map((_, el) => ({
+                    type: el.name,
+                    email: el.value
+                }));
+
+            if (options.flat) {
+                return found.toArray().map(r => r.email);
+            } else {
+                let result = { to: [], cc: [], bcc: [] };
+                if (options.type) {
+                    result[options.type] = found.toArray()
+                        .filter(r => r.type === options.type)
+                        .map(r => r.email);
                 } else {
-                    if(!recipients[recipient.name]) recipients[recipient.name] = [];
-                    recipients[recipient.name].push(recipient.value);
+                    ["to", "cc", "bcc"].forEach(type => {
+                        result[type] = found.toArray()
+                            .filter(r => r.type === type)
+                            .map(r => r.email);
+                    });
                 }
-            });
-            return recipients;
+                return result;
+            }
         },
 
         /**
-           Retrieve the current "to" recipients
+           Retrieve the typing area for "to" recipients, not recipients. 
+           Either textarea or input, which can be empty if last recipient are typed and selected (by pressing ENTER)
         */
         to: function(to) {
             const $el = this.dom("to").val(to);
@@ -3798,7 +3910,8 @@ var Gmail = function(localJQuery) {
         },
 
         /**
-           Retrieve the current "cc" recipients
+           Retrieve the typing area for "cc" recipients, not recipients. 
+           Either textarea or input, which can be empty if last recipient are typed and selected (by pressing ENTER)
         */
         cc: function(cc) {
             // ensure cc is visible before setting!
@@ -3813,7 +3926,8 @@ var Gmail = function(localJQuery) {
         },
 
         /**
-           Retrieve the current "bcc" recipients
+           Retrieve the typing area for "bcc" recipients, not recipients. 
+           Either textarea or input, which can be empty if last recipient are typed and selected (by pressing ENTER)
         */
         bcc: function(bcc) {
             // ensure bcc is visible before setting!
@@ -3906,6 +4020,7 @@ var Gmail = function(localJQuery) {
                 subjectbox: "input[name=subjectbox]",
                 all_subjects: "input[name=subjectbox], input[name=subject]",
                 body: "div[contenteditable=true]",
+                quoted_reply: "input[name=uet]",
                 reply: "M9",
                 forward: "M9",
                 from: "input[name=from]",
@@ -3913,6 +4028,15 @@ var Gmail = function(localJQuery) {
                 show_cc: "span.aB.gQ.pE",
                 show_bcc: "span.aB.gQ.pB"
             };
+
+            if (api.check.is_peoplekit_compose(this.$el)) {
+                config = Object.assign(config, {
+                    to: "div[name=to] input",
+                    cc: "div[name=cc] input",
+                    bcc: "div[name=bcc] input"
+                });
+            }
+
             if(!config[lookup]) api.tools.error("Dom lookup failed. Unable to find config for \"" + lookup + "\"",config,lookup,config[lookup]);
             return this.$el.find(config[lookup]);
         }

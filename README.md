@@ -1,6 +1,6 @@
 # Gmail.js - JavaScript API for Gmail
 
-![Build status](https://api.travis-ci.org/KartikTalwar/gmail.js.svg?branch=master)
+![Node.js CI](https://github.com/KartikTalwar/gmail.js/workflows/Node.js%20CI/badge.svg?branch=master)
 [![npm](https://img.shields.io/npm/v/gmail-js.svg)](https://www.npmjs.com/package/gmail-js)
 
 ### What Gmail.js is and isn't
@@ -18,6 +18,7 @@ It cannot be used server-side with Node, or from another web-app to interface wi
 - Lots of API methods to work with gmail. See documentation below.
 - Easy to use API. Data & DOM.
 - Reasonably complete TypeScript-support.
+- Compatible with both WebExtension Manifest V2 and V3.
 - Many methods are contextual and will work with whatever is on screen when no arguments are given.
 - Obtain email data, react to event, etc. No need for OAuth!
 - Main methods allow you to observe certain events with **`gmail.observe.on('lots_of_actions_here', callback())`** or similar **`gmail.observe.before(...)`** and **`gmail.observe.after(...)`**
@@ -617,6 +618,10 @@ Returns `True` if the user is running Gmail with the new 2018 data-layer `False`
 
 Returns `True` if the user is running Gmail with the new 2018 GUI `False` otherwise
 
+#### gmail.check.is_peoplekit_compose(composeElement)
+
+Returns `True` if the compose UI uses new UI as announced [here](https://workspaceupdates.googleblog.com/2021/10/visual-updates-for-composing-email-in-gmail.html) `False` otherwise
+
 #### gmail.check.is_thread()
 
 Returns `True` if the conversation is threaded `False` otherwise
@@ -1137,7 +1142,7 @@ Compose methods:
 - **.close()** - close compose window
 - **.dom(lookup)** - retrieve preconfigured dom elements for this compose window.
     Lookup can be one of `'to' | 'cc' | 'bcc' | 'id' | 'draft' | 'subject' | 'subjectbox'
-  | 'all_subjects' | 'body' | 'reply' | 'forward' | 'from' | 'send_button'`
+  | 'all_subjects' | 'body' | 'quoted_reply' | 'reply' | 'forward' | 'from' | 'send_button' | 'show_cc' | 'show_bcc'`
 
 ### gmail.dom.email(email_el or email_id)
 

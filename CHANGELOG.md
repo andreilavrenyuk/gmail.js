@@ -1,6 +1,44 @@
 
 # Changelog
 
+## Version 1.0.15
+
+- Fix issue with accessing to(), cc() and bcc() in compose-fields with
+  new Gmail "PeopleKit" UI. Thanks @huksley!
+
+## Version 1.0.14
+
+- Persist if a message is a draft during request parsing.
+
+## Version 1.0.13
+
+- Fix error in `gmail.get.localization()`, which should have been caught by CI.
+
+## Version 1.0.12
+
+- Fix error in `gmail.get.localization()`. This closes [issue 652](https://github.com/KartikTalwar/gmail.js/issues/652).
+
+## Version 1.0.11
+
+- Fix cursor when hovering over button created using `gmail.tools.add_compose_button`.
+
+## Version 1.0.10
+
+- Better attempt at fixing incorrect triggering of custom buttons created through GmailJS.
+
+## Version 1.0.9 - unpublished
+
+- Fix incorrect triggering of custom buttons created through GmailJS.
+
+## Version 1.0.8 - unpublished
+
+- Fix Firefox-compatibility issue in Gmail click-jack prevention.
+
+## Version 1.0.7 - unpublished
+
+- Fix issues with Gmail preventing click-events on buttons registered
+  thourgh GmailJS. Closes #648.
+
 ## Version 1.0.6
 
 - Fix `gmail.compose.start_compose()`.
